@@ -1,0 +1,48 @@
+version: "3.9"
+x-default-logging: &logging
+   driver: "json-file"
+   options:
+     max-size: "10m"
+     max-file: "2"
+
+services:
+  grafana:
+    image: grafana/grafana:9.1.0
+    ports:
+      - "${GRAFANA_SERVICE_PORT}-3002:${GRAFANA_SERVICE_PORT}"
+    depends_on:
+      - prometheus
+    logging: *logging
+    deploy:
+      mode: replicated
+      replicas: 2
+    volumes:
+      - ./config/grafana/grafana.ini:/etc/grafana/grafana.ini
+      - ./config/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./config/grafana/datasources:/etc/grafana/provisioning/datasources
+
+  prometheus:
+    image: quay.io/prometheus/prometheus:v2.34.0
+    container_name: prometheus
+    command:
+      - --web.console.templates=/etc/prometheus/consoles
+      - --web.console.libraries=/etc/prometheus/console_libraries
+      - --storage.tsdb.retention.time=1h
+      - --config.file=/etc/prometheus/prometheus-config.yaml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-lifecycle
+      - --web.route-prefix=/
+    volumes:
+      - ./config/prometheus/prometheus-config.yaml:/etc/prometheus/prometheus-config.yaml
+    deploy:
+      resources:
+        limits:
+          memory: 300M
+    ports:
+      - "${PROMETHEUS_SERVICE_PORT}:${PROMETHEUS_SERVICE_PORT}"
+    logging: *logging
+
+networks:
+  default:
+    name: observability
+
