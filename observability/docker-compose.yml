@@ -16,6 +16,13 @@ services:
     deploy:
       mode: replicated
       replicas: 2
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 128M
+        reservations:
+          cpus: "0.25"
+          memory: 64M
     volumes:
       - ./config/grafana/grafana.ini:/etc/grafana/grafana.ini
       - ./config/grafana/dashboards:/etc/grafana/provisioning/dashboards
@@ -37,7 +44,11 @@ services:
     deploy:
       resources:
         limits:
-          memory: 300M
+          cpus: "0.50"
+          memory: 128M
+        reservations:
+          cpus: "0.25"
+          memory: 64M
     ports:
       - "${PROMETHEUS_SERVICE_PORT}:${PROMETHEUS_SERVICE_PORT}"
     logging: *logging
@@ -45,4 +56,3 @@ services:
 networks:
   default:
     name: observability
-
