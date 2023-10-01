@@ -112,6 +112,22 @@ build-packer: ## Build Packer image
 	--tag $(imagePacker) .
 
 
+.PHONY: run-observability
+run-observability: ## Run observability stack
+
+	docker compose \
+	-f observability/docker-compose.yml \
+	up
+
+
+.PHONY: down-observability
+down-observability: ## Down	observability stack
+
+	docker compose \
+	-f observability/docker-compose.yml \
+	down
+
+
 # Tests
 run-packer-test: ## Run Packer container test
 	@echo "usage: make run-packer-test"
