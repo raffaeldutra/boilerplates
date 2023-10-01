@@ -1,0 +1,36 @@
+name: Makefile CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "issue**" ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    # Packer
+    - name: Build Packer image
+      run: make build-packer
+
+    - name: Run Packer container
+      run: make run-packer-test
+
+    # Ansible
+    - name: Build Ansible image
+      run: make build-ansible
+
+    - name: Run Ansible container
+      run: make run-ansible-test
+
+    # Terraform
+    - name: Build terraform image
+      run: make build-terraform
+
+    - name: Run Terraform container
+      run: make run-terraform-test

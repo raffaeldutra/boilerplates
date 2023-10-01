@@ -110,3 +110,39 @@ build-packer: ## Build Packer image
 	docker image build \
 	--file packer/Dockerfile \
 	--tag $(imagePacker) .
+
+
+# Tests
+run-packer-test: ## Run Packer container test
+	@echo "usage: make run-packer-test"
+
+	docker container run \
+	--platform $(platform) \
+ 	--rm \
+	--entrypoint packer \
+	$(imagePacker) \
+	version
+
+
+.PHONY: run-terraform-test
+run-terraform-test: ## Run Packer container test
+	@echo "usage: make run-terraform-test"
+
+	docker container run \
+	--platform $(platform) \
+ 	--rm \
+	--entrypoint terraform \
+	$(imageTerraform) \
+	version
+
+
+.PHONY: run-ansible-test
+run-ansible-test: ## Run Ansible container test
+	@echo "usage: make run-ansible-test"
+
+	docker container run \
+	--platform $(platform) \
+ 	--rm \
+	--entrypoint ansible \
+	$(imageAnsible) \
+	--version
