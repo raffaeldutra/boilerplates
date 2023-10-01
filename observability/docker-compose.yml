@@ -43,6 +43,7 @@ services:
       - --web.route-prefix=/
     volumes:
       - ./config/prometheus/prometheus-config.yaml:/etc/prometheus/prometheus-config.yaml
+      - prometheus_data:/prometheus
     deploy:
       resources:
         limits:
@@ -61,3 +62,4 @@ networks:
 
 volumes:
   grafana_data:
+  prometheus_data:
