@@ -9,3 +9,8 @@ So far, we've the following container solutions:
 * Pakcer
 * Ansible
 * Terraform
+* Observability
+  * Grafana
+  * Prometheus
+  * Promtail
+  * Loki
