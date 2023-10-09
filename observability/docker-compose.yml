@@ -99,6 +99,30 @@ services:
           cpus: "0.25"
           memory: 64M
 
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.47.2
+    ports:
+      - "${CADVISOR_SERVICE_PORT}:${CADVISOR_SERVICE_PORT}"
+    privileged: true
+    devices:
+      - /dev/kmsg:/dev/kmsg
+    volumes:
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /var/run:/var/run:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    command:
+      - "--docker_only=true"
+      - "--housekeeping_interval=30s"
+      - "--disable_metrics=cpu_topology,disk,memory_numa,tcp,udp,percpu,sched,process,hugetlb,referenced_memory,resctrl,cpuset,advtcp"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 128M
+        reservations:
+          cpus: "0.25"
+          memory: 64M
+
 networks:
   default:
     name: observability
