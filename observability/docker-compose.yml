@@ -69,7 +69,7 @@ services:
     logging: *logging
 
   loki:
-    image: grafana/loki:2.6.1
+    image: grafana/loki:2.9.1
     ports:
       - "3100"
     volumes:
@@ -84,7 +84,7 @@ services:
           memory: 128M
 
   promtail:
-    image: grafana/promtail:2.6.1
+    image: grafana/promtail:2.9.1
     volumes:
       - ./config/loki/promtail-config.yaml:/etc/promtail/config.yml
       # Read container labels and logs
