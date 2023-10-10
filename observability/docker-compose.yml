@@ -5,6 +5,15 @@ x-default-logging: &logging
      max-size: "10m"
      max-file: "2"
 
+x-default-deploy-resources: &deploy-resources
+  resources:
+    limits:
+      cpus: "0.2"
+      memory: 128M
+    reservations:
+      cpus: "0.1"
+      memory: 64M
+
 services:
   grafana:
     image: grafana/grafana:9.1.0
@@ -17,13 +26,7 @@ services:
     deploy:
       mode: replicated
       replicas: 2
-      resources:
-        limits:
-          cpus: "0.50"
-          memory: 128M
-        reservations:
-          cpus: "0.25"
-          memory: 64M
+      << : *deploy-resources
     volumes:
       - ./config/grafana/grafana.ini:/etc/grafana/grafana.ini
       - ./config/grafana/dashboards:/etc/grafana/provisioning/dashboards
@@ -56,14 +59,7 @@ services:
       timeout: 5s
       retries: 2
       start_period: 10s
-    deploy:
-      resources:
-        limits:
-          cpus: "0.50"
-          memory: 128M
-        reservations:
-          cpus: "0.25"
-          memory: 64M
+    deploy: *deploy-resources
     ports:
       - "${PROMETHEUS_SERVICE_PORT}:${PROMETHEUS_SERVICE_PORT}"
     logging: *logging
@@ -74,14 +70,7 @@ services:
       - "3100"
     volumes:
       - loki_data:/loki
-    deploy:
-      resources:
-        limits:
-          cpus: "0.50"
-          memory: 256M
-        reservations:
-          cpus: "0.25"
-          memory: 128M
+    deploy: *deploy-resources
 
   promtail:
     image: grafana/promtail:2.9.1
@@ -90,14 +79,7 @@ services:
       # Read container labels and logs
       - /var/run/docker.sock:/var/run/docker.sock
       - /var/lib/docker/containers:/var/lib/docker/containers
-    deploy:
-      resources:
-        limits:
-          cpus: "0.50"
-          memory: 128M
-        reservations:
-          cpus: "0.25"
-          memory: 64M
+    deploy: *deploy-resources
 
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:v0.47.2
@@ -114,14 +96,7 @@ services:
       - "--docker_only=true"
       - "--housekeeping_interval=30s"
       - "--disable_metrics=cpu_topology,disk,memory_numa,tcp,udp,percpu,sched,process,hugetlb,referenced_memory,resctrl,cpuset,advtcp"
-    deploy:
-      resources:
-        limits:
-          cpus: "0.50"
-          memory: 128M
-        reservations:
-          cpus: "0.25"
-          memory: 64M
+    deploy: *deploy-resources
 
 networks:
   default:
