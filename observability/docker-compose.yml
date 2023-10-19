@@ -16,7 +16,7 @@ x-default-deploy-resources: &deploy-resources
 
 services:
   grafana:
-    image: grafana/grafana:9.1.0
+    image: grafana/grafana:${GRAFANA_VERSION}
     ports:
       - "${GRAFANA_SERVICE_PORT}-3002:${GRAFANA_SERVICE_PORT}"
     depends_on:
@@ -40,7 +40,7 @@ services:
       start_period: 10s
 
   prometheus:
-    image: quay.io/prometheus/prometheus:v2.34.0
+    image: quay.io/prometheus/prometheus:${PROMETHEUS_VERSION}
     container_name: prometheus
     command:
       - --web.console.templates=/etc/prometheus/consoles
@@ -65,7 +65,7 @@ services:
     logging: *logging
 
   loki:
-    image: grafana/loki:2.9.1
+    image: grafana/loki:${LOKI_VERSION}
     ports:
       - "${LOKI_SERVICE_PORT}"
     volumes:
@@ -73,7 +73,7 @@ services:
     deploy: *deploy-resources
 
   promtail:
-    image: grafana/promtail:2.9.1
+    image: grafana/promtail:${PROMTAIL_VERSION}
     environment:
       LOKI_SERVICE_HOST: ${LOKI_SERVICE_HOST}
       LOKI_SERVICE_PORT: ${LOKI_SERVICE_PORT}
@@ -88,7 +88,7 @@ services:
     deploy: *deploy-resources
 
   cadvisor:
-    image: gcr.io/cadvisor/cadvisor:v0.47.2
+    image: gcr.io/cadvisor/cadvisor:${CADVISOR_VERSION}
     ports:
       - "${CADVISOR_SERVICE_PORT}:${CADVISOR_SERVICE_PORT}"
     privileged: true
