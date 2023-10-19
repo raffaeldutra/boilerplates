@@ -74,11 +74,17 @@ services:
 
   promtail:
     image: grafana/promtail:2.9.1
+    environment:
+      LOKI_SERVICE_HOST: ${LOKI_SERVICE_HOST}
+      LOKI_SERVICE_PORT: ${LOKI_SERVICE_PORT}
     volumes:
       - ./config/loki/promtail-config.yaml:/etc/promtail/config.yml
       # Read container labels and logs
       - /var/run/docker.sock:/var/run/docker.sock
       - /var/lib/docker/containers:/var/lib/docker/containers
+    command:
+      - -config.file=/etc/promtail/config.yml
+      - -config.expand-env=true
     deploy: *deploy-resources
 
   cadvisor:
