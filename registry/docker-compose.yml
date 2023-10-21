@@ -1,0 +1,47 @@
+version: "3.9"
+
+x-default-deploy-resources: &default-deploy-resources
+  resources:
+    limits:
+      cpus: "0.2"
+      memory: 128M
+    reservations:
+      cpus: "0.1"
+      memory: 64M
+
+services:
+  registry:
+    restart: always
+    image: public.ecr.aws/docker/library/registry:${REGISTRY_VERSION_REGISTRY:-2.8.3}
+    privileged: true
+    ports:
+      - "${REGISTRY_PORT_LOCALHOST:-50000}:5000"
+    environment:
+      TZ: "${REGISTRY_TZ:-America/Sao_Paulo}"
+      REGISTRY_AUTH: htpasswd
+      REGISTRY_AUTH_HTPASSWD_PATH: /auth/htpasswd
+      REGISTRY_AUTH_HTPASSWD_REALM: basic-realm
+      REGISTRY_STORAGE_DELETE_ENABLED: true
+      REGISTRY_STORAGE_FILESYSTEM_ROOTDIRECTORY: data_registry
+    volumes:
+      - data_registry:/var/lib/registry
+      - ./nginx:/auth
+    deploy: *default-deploy-resources
+
+  nginx:
+    image: public.ecr.aws/nginx/nginx:${REGISTRY_VERSION_NGINX:-1.25-alpine}
+    ports:
+      - "${NGINX_PORT_LOCALHOST:-80}:${NGINX_PORT:-80}"
+    depends_on:
+      - registry
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/htpasswd:/etc/nginx/conf.d/nginx.htpasswd
+    deploy: *default-deploy-resources
+
+networks:
+  default:
+    name: registry
+
+volumes:
+  data_registry:
