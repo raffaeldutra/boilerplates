@@ -1,1 +1,5 @@
 /*/.DS_Store
+*.pem
+private_key*
+acme*
+registry/nginx/htpasswd
