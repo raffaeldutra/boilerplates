@@ -4,7 +4,7 @@ on:
   push:
     branches: [ "main" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "isssue**" ]
 
 jobs:
   build:
@@ -34,3 +34,14 @@ jobs:
 
     - name: Run Terraform container
       run: make run-terraform-test
+
+    # Observability stack
+    - name: Observability stack
+      run: |
+          docker compose \
+          --file observability/docker-compose.yml \
+          up \
+          -d
+
+          docker compose \
+          --project-name observability down
