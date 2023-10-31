@@ -1,9 +1,4 @@
 version: "3.9"
-x-default-logging: &logging
-   driver: "json-file"
-   options:
-     max-size: "10m"
-     max-file: "2"
 
 x-default-deploy-resources: &deploy-resources
   resources:
@@ -14,33 +9,44 @@ x-default-deploy-resources: &deploy-resources
       cpus: "0.1"
       memory: 64M
 
+name: mobfacil-qa
+
 services:
   grafana:
-    image: grafana/grafana:${GRAFANA_VERSION}
+    image: grafana/grafana:${GRAFANA_VERSION:-10.2.0}
+    container_name: grafana
     ports:
-      - "${GRAFANA_SERVICE_PORT}-3002:${GRAFANA_SERVICE_PORT}"
+      - "${GRAFANA_SERVICE_PORT:-3000}-3002:${GRAFANA_SERVICE_PORT:-3000}-3002"
+    environment:
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_AUTH_ANONYMOUS_ENABLED: true
+      GF_AUTH_BASIC_ENABLED: false
+      GF_ENABLE_GZIP: true
+      GF_DATABASE_WAL: true
     depends_on:
       prometheus:
         condition: service_healthy
-    logging: *logging
-    deploy:
-      mode: replicated
-      replicas: 2
-      << : *deploy-resources
     volumes:
-      - ./config/grafana/grafana.ini:/etc/grafana/grafana.ini
       - ./config/grafana/dashboards:/etc/grafana/provisioning/dashboards
       - ./config/grafana/datasources:/etc/grafana/provisioning/datasources
       - grafana_data:/var/lib/grafana
     healthcheck:
-      test: wget --no-verbose --tries=1 --spider http://${GRAFANA_ADDR}/api/health || exit 1
+      test: wget --no-verbose --tries=1 --spider http://${GRAFANA_ADDR:-grafana:3000}/api/health || exit 1
       interval: 10s
       timeout: 5s
       retries: 2
       start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.4"
+          memory: 256M
+        reservations:
+          cpus: "0.3"
+          memory: 128M
 
   prometheus:
-    image: quay.io/prometheus/prometheus:${PROMETHEUS_VERSION}
+    image: quay.io/prometheus/prometheus:${PROMETHEUS_VERSION:-v2.47.2}
     container_name: prometheus
     command:
       - --web.console.templates=/etc/prometheus/consoles
@@ -54,31 +60,32 @@ services:
       - ./config/prometheus/prometheus-config.yaml:/etc/prometheus/prometheus-config.yaml
       - prometheus_data:/prometheus
     healthcheck:
-      test: wget --no-verbose --tries=1 --spider http://${PROMETHEUS_ADDR}/-/healthy || exit 1
+      test: wget --no-verbose --tries=1 --spider http://${PROMETHEUS_ADDR:-prometheus:9090}/-/healthy || exit 1
       interval: 10s
       timeout: 5s
       retries: 2
       start_period: 10s
-    deploy: *deploy-resources
     ports:
-      - "${PROMETHEUS_SERVICE_PORT}:${PROMETHEUS_SERVICE_PORT}"
-    logging: *logging
+      - "${PROMETHEUS_SERVICE_PORT:-9090}:${PROMETHEUS_SERVICE_PORT:-9090}"
+    deploy: *deploy-resources
 
   loki:
-    image: grafana/loki:${LOKI_VERSION}
+    image: grafana/loki:${LOKI_VERSION:-2.9.1}
+    container_name: loki
     ports:
-      - "${LOKI_SERVICE_PORT}"
+      - "${LOKI_SERVICE_PORT:-3100}"
     volumes:
       - loki_data:/loki
     deploy: *deploy-resources
 
   promtail:
-    image: grafana/promtail:${PROMTAIL_VERSION}
+    image: grafana/promtail:${PROMTAIL_VERSION:-2.9.1}
+    container_name: promtail
     environment:
-      LOKI_SERVICE_HOST: ${LOKI_SERVICE_HOST}
-      LOKI_SERVICE_PORT: ${LOKI_SERVICE_PORT}
+      LOKI_SERVICE_HOST: ${LOKI_SERVICE_HOST:-loki}
+      LOKI_SERVICE_PORT: ${LOKI_SERVICE_PORT:-3100}
     volumes:
-      - ./config/loki/promtail-config.yaml:/etc/promtail/config.yml
+      - ./config/promtail/config.yaml:/etc/promtail/config.yml
       # Read container labels and logs
       - /var/run/docker.sock:/var/run/docker.sock
       - /var/lib/docker/containers:/var/lib/docker/containers
@@ -88,9 +95,10 @@ services:
     deploy: *deploy-resources
 
   cadvisor:
-    image: gcr.io/cadvisor/cadvisor:${CADVISOR_VERSION}
+    image: gcr.io/cadvisor/cadvisor:${CADVISOR_VERSION:-v0.47.2}
+    container_name: cadvisor
     ports:
-      - "${CADVISOR_SERVICE_PORT}:${CADVISOR_SERVICE_PORT}"
+      - "${CADVISOR_SERVICE_PORT:-8080}:${CADVISOR_SERVICE_PORT:-8080}"
     privileged: true
     devices:
       - /dev/kmsg:/dev/kmsg
@@ -98,10 +106,13 @@ services:
       - /var/lib/docker/:/var/lib/docker:ro
       - /var/run:/var/run:ro
       - /var/run/docker.sock:/var/run/docker.sock
+      - /:/rootfs:ro
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
     command:
       - "--docker_only=true"
       - "--housekeeping_interval=30s"
-      - "--disable_metrics=cpu_topology,disk,memory_numa,tcp,udp,percpu,sched,process,hugetlb,referenced_memory,resctrl,cpuset,advtcp"
+      - "--disable_metrics=cpu_topology"
     deploy: *deploy-resources
 
   node-exporter:
@@ -119,7 +130,8 @@ services:
       - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
     expose:
       - 9100
-      
+    deploy: *deploy-resources
+
 networks:
   default:
     name: observability
