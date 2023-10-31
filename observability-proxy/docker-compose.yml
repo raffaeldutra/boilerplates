@@ -1,0 +1,176 @@
+version: "3.9"
+
+x-default-deploy-resources: &deploy-resources
+  resources:
+    limits:
+      cpus: "0.2"
+      memory: 128M
+    reservations:
+      cpus: "0.1"
+      memory: 64M
+
+name: observability-proxy
+
+services:
+  traefik:
+    image: "traefik:${TRAEFIK_VERSION:-v2.10}"
+    container_name: "traefik"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik.rule=Host(`${TRAEFIK_URL:-traefik.localhost}`)"
+      - "traefik.http.routers.traefik.entrypoints=http"
+      - "traefik.http.routers.traefik.service=traefik"
+      - "traefik.http.services.traefik.loadbalancer.server.port=8080"
+    command:
+      - "--log.level=DEBUG"
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--entrypoints.http.address=:80"
+    ports:
+      - "80:80"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+    deploy: *deploy-resources
+
+  grafana:
+    image: grafana/grafana:${GRAFANA_VERSION:-10.2.0}
+    container_name: grafana
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.grafana.rule=Host(`${GRAFANA_URL:-grafana.localhost}`)"
+      - "traefik.http.routers.grafana.entrypoints=http"
+      - "traefik.http.routers.grafana.service=grafana"
+      - "traefik.http.services.grafana.loadbalancer.server.port=3000"
+    environment:
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_AUTH_ANONYMOUS_ENABLED: true
+      GF_AUTH_BASIC_ENABLED: false
+      GF_ENABLE_GZIP: true
+      GF_DATABASE_WAL: true
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    volumes:
+      - ./config/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./config/grafana/datasources:/etc/grafana/provisioning/datasources
+      - grafana_data:/var/lib/grafana
+    healthcheck:
+      test: wget --no-verbose --tries=1 --spider http://${GRAFANA_ADDR:-grafana:3000}/api/health || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 2
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.4"
+          memory: 256M
+        reservations:
+          cpus: "0.3"
+          memory: 128M
+
+  prometheus:
+    image: quay.io/prometheus/prometheus:${PROMETHEUS_VERSION:-v2.47.2}
+    container_name: prometheus
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.prometheus.rule=Host(`${PROMETHEUS_URL:-prometheus.localhost}`)"
+      - "traefik.http.routers.prometheus.entrypoints=http"
+      - "traefik.http.routers.prometheus.service=prometheus"
+      - "traefik.http.services.prometheus.loadbalancer.server.port=9090"
+    command:
+      - --web.console.templates=/etc/prometheus/consoles
+      - --web.console.libraries=/etc/prometheus/console_libraries
+      - --storage.tsdb.retention.time=1h
+      - --config.file=/etc/prometheus/prometheus-config.yaml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-lifecycle
+      - --web.route-prefix=/
+    volumes:
+      - ./config/prometheus/prometheus-config.yaml:/etc/prometheus/prometheus-config.yaml
+      - prometheus_data:/prometheus
+    healthcheck:
+      test: wget --no-verbose --tries=1 --spider http://${PROMETHEUS_ADDR:-prometheus:9090}/-/healthy || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 2
+      start_period: 10s
+    ports:
+      - "${PROMETHEUS_SERVICE_PORT:-9090}:${PROMETHEUS_SERVICE_PORT:-9090}"
+    deploy: *deploy-resources
+
+  loki:
+    image: grafana/loki:${LOKI_VERSION:-2.9.1}
+    container_name: loki
+    volumes:
+      - loki_data:/loki
+    deploy: *deploy-resources
+
+  promtail:
+    image: grafana/promtail:${PROMTAIL_VERSION:-2.9.1}
+    container_name: promtail
+    environment:
+      LOKI_SERVICE_HOST: ${LOKI_SERVICE_HOST:-loki}
+      LOKI_SERVICE_PORT: ${LOKI_SERVICE_PORT:-3100}
+    volumes:
+      - ./config/promtail/config.yaml:/etc/promtail/config.yml
+      # Read container labels and logs
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/lib/docker/containers:/var/lib/docker/containers
+    command:
+      - -config.file=/etc/promtail/config.yml
+      - -config.expand-env=true
+    expose:
+      - 3100
+    deploy: *deploy-resources
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:${CADVISOR_VERSION:-v0.47.2}
+    container_name: cadvisor
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.cadvisor.rule=Host(`${CADVISOR_URL:-cadvisor.localhost}`)"
+      - "traefik.http.routers.cadvisor.entrypoints=http"
+      - "traefik.http.routers.cadvisor.service=cadvisor"
+      - "traefik.http.services.cadvisor.loadbalancer.server.port=8080"    
+    privileged: true
+    devices:
+      - /dev/kmsg:/dev/kmsg
+    volumes:
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /var/run:/var/run:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /:/rootfs:ro
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
+    command:
+      - "--docker_only=true"
+      - "--housekeeping_interval=30s"
+      - "--disable_metrics=cpu_topology"
+    deploy: *deploy-resources
+
+  node-exporter:
+    image: prom/node-exporter:v1.6.1
+    container_name: node-exporter
+    restart: unless-stopped
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    expose:
+      - 9100
+    deploy: *deploy-resources
+
+networks:
+  default:
+    name: observability-proxy
+
+volumes:
+  grafana_data:
+  prometheus_data:
+  loki_data:
