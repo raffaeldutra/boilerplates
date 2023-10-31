@@ -9,6 +9,8 @@ x-default-deploy-resources: &deploy-resources
       cpus: "0.1"
       memory: 64M
 
+name: observability
+
 services:
   grafana:
     image: grafana/grafana:${GRAFANA_VERSION:-10.2.0}
