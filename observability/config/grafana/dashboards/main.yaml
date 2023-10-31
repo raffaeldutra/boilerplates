@@ -17,3 +17,12 @@ providers:
     editable: true
     options:
       path: /etc/grafana/provisioning/dashboards/loki
+      
+  - name: 'Node Exporter'
+    orgId: 1
+    folder: 'Nodes'
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /etc/grafana/provisioning/dashboards/nodes
